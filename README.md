@@ -213,4 +213,4 @@ It was revisited in **September 2026** to improve the interface, documentation, 
 
 This project is licensed under the **MIT License**.
 
-See the `LICENSE` file for details.
+See the [License](LICENSE) file for details.
