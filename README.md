@@ -173,7 +173,7 @@ Tkinter is distributed with many Python installations, but on some Linux distrib
 Clone the repository and enter the project directory:
 
 ```bash
-git clone https://github.com/MmostafaNasrollahpour/connect4-minimax-ai.git
+git clone https://github.com/MostafaNasrollahpour/connect4-minimax-ai.git
 cd connect4-minimax-ai
 ```
 
