@@ -1,203 +1,216 @@
-# Connect4 with AI
+# Connect4 Minimax AI
 
-A small Python project for experimenting with **adversarial search algorithms** through a three-player, 10×10 Connect Four variant.
+A three-player, 10×10 Connect Four variant built to explore adversarial search using **Minimax**, **alpha-beta pruning**, and **heuristic board evaluation**.
 
-Two players are human (`X` and `O`) and the third player (`R`) is controlled by an AI that uses **depth-limited Minimax with alpha-beta pruning**. The project intentionally stays compact so the search logic, heuristic evaluation, and game loop are easy to inspect in one file.
+The project includes a Tkinter interface and supports both randomized turn selection and a fixed round-robin turn order.
 
 ## Screenshots
 
-The repository is prepared for two screenshots:
-
 | Random turns | Round-robin turns |
 | --- | --- |
-| ![Random-turn mode](assets/screenshots/random-turns.png) | ![Round-robin mode](assets/screenshots/round-robin.png) |
+| ![Random turns mode](assets/screenshots/random-turns.png) | ![Round-robin mode](assets/screenshots/round-robin.png) |
 
-Replace the two placeholder images in `assets/screenshots/` with your own screenshots using the same filenames and GitHub will display them here automatically.
+## Overview
 
-## Why this project exists
+Two human players (`X` and `O`) compete against a Minimax-controlled AI player (`R`) on a 10×10 board.
 
-The main purpose of this project is to practice and visualize how a game-playing AI makes decisions with Minimax. Connect Four provides a simple board state and a clear win condition, while the third player and alternative turn modes make the search problem a little less conventional than standard two-player Connect Four.
-
-The GUI is intentionally simple. It exists mainly to make the AI behavior observable: you can play against it, see which column it chooses, and see how long each AI decision takes.
-
-## Players and colors
-
-| Symbol | Role | Color |
+| Player | Role | Color |
 | --- | --- | --- |
-| `X` | Human player 1 | Red |
-| `O` | Human player 2 | Green |
-| `R` | AI player | Yellow |
+| `X` | Human 1 | Red |
+| `O` | Human 2 | Green |
+| `R` | AI | Yellow |
 
 A player wins by connecting four pieces horizontally, vertically, or diagonally.
 
-## Game modes
+The graphical interface numbers the columns from `1` to `10`, while the internal board representation continues to use zero-based indexing.
 
-The GUI provides two ways to choose the next player. The game rules and AI algorithm are otherwise unchanged.
+## Game Modes
+
+The game provides two turn-selection modes.
 
 ### Random turns
 
-This is the original mode. Before every move, the next player is selected randomly from `X`, `O`, and `R`, similar to rolling a three-sided die.
+The next player is selected randomly from `X`, `O`, and `R`.
 
-To prevent one player from dominating the game only because of luck, the same player cannot be selected more than two times in a row.
+To avoid excessively long repeated turns, the same player cannot be selected more than twice in a row.
 
 ### Round-robin turns
 
-Players move in a fixed repeating order:
+Players move in a fixed sequence:
 
 ```text
 X → O → R → X → O → R → ...
 ```
 
-This mode removes randomness from turn selection and makes the game easier to follow when observing the AI's choices.
+This mode removes turn randomness and makes the game flow easier to follow when observing the AI.
 
-The selected mode controls the **game loop only**. The Minimax implementation itself is intentionally kept the same in both modes.
+## How the AI Works
 
-## How the AI works
+The AI controls player `R` and uses a depth-limited Minimax search with alpha-beta pruning.
 
-The AI controls `R`. Whenever it receives a turn, it evaluates the legal columns and searches possible future board states before selecting a move.
+The default search depth is:
 
-### 1. Generate legal moves
-
-The AI starts with every column that is not full. At the top level, the columns are ordered roughly from the center outward. Trying promising moves earlier can allow alpha-beta pruning to discard more branches later in the search.
-
-### 2. Search with Minimax
-
-The search uses a fixed depth of `4`.
-
-- The **maximizing** layer represents the AI (`R`) and tries to find the highest-scoring board state.
-- The **minimizing** layer represents the human opponents (`X` and `O`) and searches for moves that reduce the AI's score.
-- A guaranteed AI win evaluates to positive infinity.
-- A guaranteed human win evaluates to negative infinity.
-- If the depth limit is reached first, the board is scored with the heuristic evaluation function.
-
-Conceptually, the AI is asking:
-
-```text
-If I play here, what is the strongest response my opponents could make,
-and what position would that leave me in after a few more moves?
+```python
+AI_DEPTH = 4
 ```
 
-It chooses the move whose worst-case continuation has the best evaluation for `R`.
+### 1. Legal move generation
 
-### 3. Evaluate non-terminal positions
+Before searching, the AI finds all columns that are not full.
 
-When the search reaches its depth limit, the heuristic scans possible four-cell lines in four directions:
+Candidate moves are ordered from the center of the board outward. Exploring central columns first can help alpha-beta pruning reach useful branches earlier.
 
-- horizontal
-- vertical
-- diagonal down-right
-- diagonal down-left
+### 2. Minimax search
 
-For uncontested lines, the score grows as a player gets closer to four connected pieces:
+The AI is treated as the **maximizing player**.
 
-| Pieces in a candidate line | Score magnitude |
+The two human players, `X` and `O`, are treated as adversarial **minimizing players**.
+
+For each possible AI move, the algorithm recursively explores future positions until one of the following conditions is reached:
+
+- the configured search depth is exhausted;
+- the AI has won;
+- one of the human players has won;
+- the board is full.
+
+Winning positions for the AI return positive infinity, while winning positions for either human player return negative infinity.
+
+### 3. Heuristic evaluation
+
+When the search reaches its depth limit without finding a terminal position, the board is scored using a heuristic evaluation function.
+
+The evaluator examines four-cell windows horizontally, vertically, and along both diagonals.
+
+Potential lines containing only AI pieces and empty cells increase the score. Potential lines belonging to either human player decrease it.
+
+The current heuristic weights are:
+
+| Pieces in a potential line | Score magnitude |
 | ---: | ---: |
 | 1 | 1 |
 | 2 | 5 |
 | 3 | 50 |
 
-Lines belonging to `R` add to the score. Lines belonging to either human player subtract from it. Lines containing pieces from both sides are ignored because that four-cell window can no longer become a clean four-in-a-row for one side.
+A line containing pieces from both sides is ignored because it can no longer become a four-piece winning line for a single side.
 
 ### 4. Alpha-beta pruning
 
-Minimax can expand many board states even at a modest depth. Alpha-beta pruning tracks the best result already available to the maximizing and minimizing sides.
+Alpha-beta pruning skips branches that can no longer affect the final Minimax decision. `alpha` tracks the best score for the maximizing player, while `beta` tracks the best score for the minimizing player.
 
-When a branch cannot possibly improve the final decision, that branch is stopped early instead of being searched completely. This reduces unnecessary work without changing the result that Minimax would choose for the same search model and depth.
+### Search Model
 
-### Search-model limitation
+The AI uses a simplified adversarial search model in which both human players are treated as minimizing opponents. Turn selection is handled separately by the game loop rather than modeled inside the search tree.
 
-The real game has three players, and the random-turn mode also has stochastic turn selection. The current Minimax tree deliberately uses a simpler adversarial model: `R` is the maximizer, while both `X` and `O` are treated as minimizing opponents.
+## Project Structure
 
-The search therefore does **not** simulate the random die or the exact round-robin turn order inside the tree. Those mechanics are handled by the game loop. Keeping that distinction explicit is useful here because the repository is focused on practicing Minimax, alpha-beta pruning, and heuristic design rather than implementing a full stochastic multi-agent search algorithm.
+```text
+connect4-minimax-ai/
+├── main.py
+├── game.py
+├── ai.py
+├── gui.py
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── assets/
+    └── screenshots/
+        ├── random-turns.png
+        └── round-robin.png
+```
 
-## UI details
+### `main.py`
 
-- Columns are displayed as `1` through `10` for the player.
-- Internal Python indexing still uses `0` through `9`.
-- The player legend shows the symbol, role, and color for `X`, `O`, and `R`.
-- The status line shows the active game mode and current player.
-- After an AI move, the status line shows the selected column and decision time.
-- You can select a mode and use **Start / Restart Game** to reset the board with that mode.
+Application entry point. It creates the GUI and starts the Tkinter event loop.
+
+### `game.py`
+
+Contains the core game state and rules:
+
+- board representation;
+- piece placement;
+- winner detection;
+- legal move detection;
+- random turn selection;
+- round-robin turn selection.
+
+### `ai.py`
+
+Contains the AI-specific logic:
+
+- heuristic board evaluation;
+- Minimax search;
+- alpha-beta pruning;
+- AI move selection.
+
+### `gui.py`
+
+Contains the Tkinter interface and coordinates interaction between the game state and the AI:
+
+- board rendering;
+- player colors and labels;
+- column controls;
+- game-mode selection;
+- restart behavior;
+- AI decision-time display.
 
 ## Requirements
 
 - Python 3
-- NumPy 2.3.5
+- NumPy `2.3.5`
 - Tkinter
 
-The dependency is pinned in `requirements.txt`:
-
-```text
-numpy==2.3.5
-```
-
-Tkinter is included with many Python installations. On some Linux distributions it may need to be installed separately, for example through the system package `python3-tk`.
-
-## Installation
-
-Clone the repository and enter the project directory:
-
-```bash
-git clone <your-repository-url>
-cd Connect4-With-Ai
-```
-
-Create a virtual environment:
-
-```bash
-python -m venv .venv
-```
-
-Activate it on Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-Or on macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install the dependency:
+Install the Python dependency with:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run
+
+Tkinter is distributed with many Python installations, but on some Linux distributions it may need to be installed separately through the system package manager.
+
+## Running the Project
+
+Clone the repository and enter the project directory:
 
 ```bash
-python connect4.py
+git clone https://github.com/MmostafaNasrollahpour/connect4-minimax-ai.git
+cd connect4-minimax-ai
 ```
 
-Choose either **Random turns** or **Round-robin**, then click **Start / Restart Game**.
+Creating a virtual environment is recommended:
 
-When `X` or `O` receives a turn, use the numbered buttons below the board to choose a column. When `R` receives a turn, the AI automatically searches for and plays a move.
-
-## Project structure
-
-```text
-.
-├── assets/
-│   └── screenshots/
-│       ├── random-turns.png
-│       └── round-robin.png
-├── .gitignore
-├── README.md
-├── connect4.py
-└── requirements.txt
+```bash
+python -m venv .venv
 ```
 
-## Possible experiments
+Activate it, then install the dependency:
 
-Because the project is centered on search algorithms, a few parameters are easy to experiment with without redesigning the application:
+```bash
+pip install -r requirements.txt
+```
 
-- change `AI_DEPTH` and compare decision time versus playing strength
-- change the heuristic weights (`1`, `5`, `50`)
-- compare center-first move ordering with natural column order
-- count searched or pruned nodes
-- replace the simplified opponent model with a turn-aware or stochastic search algorithm
+Run the application with:
 
-These are intentionally left as experiments rather than hidden behind a larger application architecture.
+```bash
+python main.py
+```
+
+Select a game mode and press **Start / Restart Game**.
+
+When a human player is selected, choose a column using one of the numbered buttons below the board. When `R` is selected, the AI automatically searches for a move and displays the decision time in the interface.
+
+## Ideas to Explore
+
+The project can be extended by experimenting with search depth, heuristic weights, alternative evaluation functions, or more advanced turn-aware search strategies.
+
+## Project History
+
+The project was originally built in **December 2025** to explore Minimax, alpha-beta pruning, and heuristic search in a three-player Connect Four environment.
+
+It was revisited in **September 2026** to improve the interface, documentation, and code structure while keeping the original search logic largely intact.
+
+## License
+
+This project is licensed under the **MIT License**.
+
+See the `LICENSE` file for details.
